@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#14141d">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://w3.org' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%2300adb5'/><text x='50' y='68' font-size='55' text-anchor='middle' fill='white'>💪</text></svg>">
+    <title>Fitness Tracker Dashboard</title>
+    <style>
+        :root {
+            --card-bg: #14141d;
+            --card-border: rgba(255, 255, 255, 0.08);
+            --primary: #00adb5;
+            --accent-magenta: #a00670;
+            --accent-orange: #ff5722;
+            --accent-green: #4caf50;
+            --accent-yellow: #ffc107;
+            --accent-red: #f44336;
+            --text-main: #ffffff;
+            --text-sub: #9e9e9e;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background: linear-gradient(135deg, #1b0718 0%, #09090e 100%); color: var(--text-main); min-height: 100vh; padding: 24px; }
+        .dashboard-wrapper { max-width: 1150px; margin: 0 auto; }
+        .topbar { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 18px; padding: 20px 28px; margin-bottom: 24px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 15px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45); }
+        .brand h1 { font-size: 24px; color: var(--primary); }
+        .brand p { font-size: 13px; color: var(--text-sub); margin-top: 3px; }
+        .topbar-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .nav-btn { background: #22222e; color: #ffffff; border: 1px solid #383848; padding: 10px 16px; border-radius: 8px; font-weight: bold; font-size: 13px; cursor: pointer; }
+        .nav-btn.active { background: var(--primary); border-color: var(--primary); color: #ffffff; }
+        .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 18px; margin-bottom: 24px; }
+        .kpi-card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 18px; padding: 20px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35); }
+        .kpi-card h3 { font-size: 12px; text-transform: uppercase; color: var(--text-sub); letter-spacing: 0.8px; margin-bottom: 8px; }
+        .kpi-value { font-size: 30px; font-weight: bold; margin-bottom: 6px; }
+        .kpi-sub { font-size: 12px; color: var(--text-sub); margin-bottom: 12px; }
+        .progress-track { width: 100%; height: 8px; background: rgba(255, 255, 255, 0.08); border-radius: 999px; overflow: hidden; }
+        .progress-fill { height: 100%; width: 0%; border-radius: 999px; transition: width 0.3s ease; }
+        .steps-color { color: var(--accent-green); }
+        .steps-bg { background: var(--accent-green); }
+        .cal-color { color: var(--accent-orange); }
+        .cal-bg { background: var(--accent-orange); }
+        .water-color { color: var(--primary); }
+        .water-bg { background: var(--primary); }
+        .bmi-color { color: #e040fb; }
+        .chart-card { margin-bottom: 24px; }
+        .chart-controls { display: flex; gap: 6px; }
+        .chart-tab { background: #22222e; color: var(--text-sub); border: 1px solid #383848; padding: 6px 10px; border-radius: 6px; font-size: 11px; font-weight: bold; cursor: pointer; }
+        .chart-tab.active { background: var(--primary); border-color: var(--primary); color: #ffffff; }
+        .bar-chart-wrap { display: grid; grid-template-columns: repeat(7, 1fr); gap: 12px; align-items: end; height: 190px; padding: 20px 10px 8px 10px; background: rgba(255, 255, 255, 0.02); border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.05); }
+        .bar-col { display: flex; flex-direction: column; align-items: center; height: 100%; justify-content: flex-end; }
+        .bar-val { font-size: 11px; font-weight: bold; color: var(--text-sub); margin-bottom: 6px; }
+        .bar-track { width: 100%; max-width: 38px; height: 115px; background: rgba(255, 255, 255, 0.05); border-radius: 8px; display: flex; align-items: flex-end; overflow: hidden; }
+        .bar-fill { width: 100%; height: 4%; background: var(--accent-green); border-radius: 8px; transition: height 0.35s ease, background 0.25s ease; }
+        .bar-fill.today-bar { background: var(--primary); box-shadow: 0 0 12px rgba(0, 173, 181, 0.45); }
+        .bar-day { font-size: 11px; color: var(--text-sub); margin-top: 8px; font-weight: bold; }
+        .consistency-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; font-size: 12px; color: var(--text-sub); }
+        .main-grid { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 24px; }
+        @media (max-width: 850px) { .main-grid { grid-template-columns: 1fr; } }
+        .panel { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 18px; padding: 22px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35); }
+        .panel-title { font-size: 16px; font-weight: bold; margin-bottom: 16px; color: var(--text-main); display: flex; justify-content: space-between; align-items: center; }
+        .log-box { background: rgba(255, 255, 255, 0.03); padding: 15px; border-radius: 14px; margin-bottom: 14px; border: 1px solid rgba(255, 255, 255, 0.05); }
+        .log-box:last-child { margin-bottom: 0; }
+        .log-box h4 { font-size: 13px; color: var(--text-sub); margin-bottom: 10px; }
+        .input-row { display: flex; gap: 10px; flex-wrap: wrap; }
+        input, select { flex: 1; min-width: 110px; padding: 10px 12px; border-radius: 8px; border: 1px solid #383848; background: #22222e; color: #ffffff; font-size: 14px; }
+        button { padding: 10px 16px; border: none; border-radius: 8px; background: var(--primary); color: #ffffff; font-weight: bold; font-size: 13px; cursor: pointer; }
+        button:hover { opacity: 0.9; }
+        .btn-orange { background: var(--accent-orange); }
+        .btn-green { background: var(--accent-green); }
+        .btn-purple { background: var(--accent-magenta); }
+        .btn-outline { background: transparent; border: 1px solid #444; color: var(--text-sub); }
+        .bmi-banner { margin-top: 12px; padding: 12px; border-radius: 10px; background: rgba(255, 255, 255, 0.05); display: none; justify-content: space-between; align-items: center; }
+        .history-list { list-style: none; max-height: 360px; overflow-y: auto; }
+        .history-item { background: rgba(255, 255, 255, 0.04); padding: 10px 14px; border-radius: 8px; margin-bottom: 8px; font-size: 13px; display: flex; justify-content: space-between; align-items: center; border-left: 3px solid var(--primary); }
+        .empty-msg { color: var(--text-sub); font-size: 13px; text-align: center; padding: 30px 10px; }
+        .calendar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+        .calendar-weekdays, .calendar-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; text-align: center; }
+        .calendar-weekdays div { font-size: 12px; font-weight: bold; color: var(--text-sub); padding-bottom: 6px; }
+        .cal-day { background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 10px; padding: 12px 4px; cursor: pointer; font-size: 14px; position: relative; min-height: 54px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .cal-day:hover { border-color: var(--primary); }
+        .cal-day.selected { background: rgba(0, 173, 181, 0.2); border-color: var(--primary); font-weight: bold; }
+        .cal-day.empty { background: transparent; border: none; cursor: default; }
+        .cal-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent-green); margin-top: 5px; }
+        .day-summary-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }
+        .mini-stat { background: rgba(255, 255, 255, 0.04); padding: 10px; border-radius: 10px; text-align: center; }
+        .mini-stat span { display: block; font-size: 11px; color: var(--text-sub); }
+        .mini-stat strong { font-size: 16px; margin-top: 4px; display: block; }
+    </style>
+</head>
+<body>
+<div class="dashboard-wrapper">
+    <div class="topbar">
+        <div class="brand">
+            <h1>FITNESS SQUAD DASHBOARD</h1>
+            <p id="current-date">Daily Health &amp; Activity Tracker</p>
+        </div>
+        <div class="topbar-actions">
+            <button type="button" class="nav-btn active" id="nav-dashboard">Dashboard</button>
+            <button type="button" class="nav-btn" id="nav-calendar">Exercise Calendar</button>
+            <button type="button" class="btn-outline" id="btn-export">Export Backup</button>
+            <button type="button" class="btn-outline" id="btn-import-trigger">Import Backup</button>
+            <input type="file" id="import-file" accept=".json" style="display:none;">
+            <button type="button" class="btn-outline" id="btn-reset">Reset Today</button>
+        </div>
+    </div>
+
+    <div id="view-dashboard">
+        <div class="kpi-grid">
+            <div class="kpi-card">
+                <h3>Steps Taken</h3>
+                <div class="kpi-value steps-color" id="step-display">0</div>
+                <div class="kpi-sub" id="step-sub">Goal: 10,000 steps (0%)</div>
+                <div class="progress-track"><div class="progress-fill steps-bg" id="step-bar"></div></div>
+            </div>
+            <div class="kpi-card">
+                <h3>Calories Burned</h3>
+                <div class="kpi-value cal-color" id="cal-display">0 kcal</div>  
+                                <div class="kpi-sub" id="cal-sub">Goal: 500 kcal (0%)</div>
+                <div class="progress-track"><div class="progress-fill cal-bg" id="cal-bar"></div></div>
+            </div>
+            <div class="kpi-card">
+                <h3>Water Intake</h3>
+                <div class="kpi-value water-color" id="water-display">0 ml</div>
+                <div class="kpi-sub" id="water-sub">Goal: 2,500 ml (0%)</div>
+                <div class="progress-track"><div class="progress-fill water-bg" id="water-bar"></div></div>
+            </div>
+            <div class="kpi-card">
+                <h3>Latest BMI</h3>
+                <div class="kpi-value bmi-color" id="kpi-bmi-val">--</div>
+                <div class="kpi-sub" id="kpi-bmi-cat">Not calculated yet</div>
+                <div class="progress-track"><div class="progress-fill" id="bmi-bar" style="background:#e040fb;"></div></div>
+            </div>
+        </div>
+
+        <div class="panel chart-card">
+            <div class="panel-title">
+                <span>7-Day Exercise Consistency</span>
+                <div class="chart-controls">
+                    <button type="button" class="chart-tab active" data-chart-metric="calories">Calories</button>
+                    <button type="button" class="chart-tab" data-chart-metric="steps">Steps</button>
+                    <button type="button" class="chart-tab" data-chart-metric="sessions">Workouts</button>
+                </div>
+            </div>
+            <div class="bar-chart-wrap" id="consistency-chart"></div>
+            <div class="consistency-footer">
+                <span id="consistency-score">Active Days: 0 / 7 days</span>
+                <span id="consistency-streak">Current Streak: 0 days</span>
+            </div>
+        </div>
+
+        <div class="main-grid">
+            <div class="panel">
+                <div class="panel-title">Activity &amp; Body Metrics</div>
+                <div class="log-box">
+                    <h4>BMI Calculator</h4>
+                    <div class="input-row">
+                        <input type="number" id="weight-input" placeholder="Weight (kg)" step="0.1">
+                        <input type="number" id="height-input" placeholder="Height (cm)" step="0.1">
+                        <button type="button" class="btn-purple" id="btn-bmi">Check BMI</button>
+                    </div>
+                    <div class="bmi-banner" id="bmi-result-box">
+                        <strong id="bmi-score">BMI: 0.0</strong>
+                        <span id="bmi-category" style="font-weight:bold;">Normal Weight</span>
+                    </div>
+                </div>
+                <div class="log-box">
+                    <h4>Log Daily Steps</h4>
+                    <div class="input-row">
+                        <input type="number" id="step-input" placeholder="e.g., 2500 steps">
+                        <button type="button" class="btn-green" id="btn-steps">Add Steps</button>
+                    </div>
+                </div>
+                <div class="log-box">
+                    <h4>Log Water Hydration</h4>
+                    <div class="input-row">
+                        <select id="water-input">
+                            <option value="250">Glass (250 ml)</option>
+                            <option value="500">Bottle (500 ml)</option>
+                            <option value="750">Large Flask (750 ml)</option>
+                            <option value="1000">Gallon (1000 ml)</option>
+                        </select>
+                        <button type="button" class="btn-orange" id="btn-water">Drink</button>
+                    </div>
+                </div>
+                <div class="log-box">
+                    <h4>Log Workout Session</h4>
+                    <div class="input-row">
+                        <input type="text" id="workout-input" placeholder="Activity (e.g., Biking, Running)">
+                        <input type="number" id="burn-input" placeholder="kcal">
+                        <button type="button" id="btn-workout">Log Workout</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-title">
+                    <span>Today's Activity Feed</span>
+                    <span id="log-count" style="font-size:12px; color:#9e9e9e;">0 entries</span>
+                </div>
+                <ul class="history-list" id="history-log">
+                    <li class="empty-msg">No activities logged yet today.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div id="view-calendar" style="display:none;">
+        <div class="main-grid">
+            <div class="panel">
+                <div class="calendar-header">
+                    <button type="button" class="btn-outline" id="cal-prev">&lt; Prev</button>
+                    <h3 id="cal-month-label">Month Year</h3>
+                    <button type="button" class="btn-outline" id="cal-next">Next &gt;</button>
+                </div>
+                <div class="calendar-weekdays">
+                    <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+                </div>
+                <div class="calendar-days" id="calendar-grid"></div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-title"><span id="selected-date-title">Selected Date Details</span></div>
+                <div class="day-summary-row">
+                    <div class="mini-stat"><span>Steps</span><strong class="steps-color" id="cal-day-steps">0</strong></div>
+                    <div class="mini-stat"><span>Calories</span><strong class="cal-color" id="cal-day-cals">0 kcal</strong></div>
+                    <div class="mini-stat"><span>Water</span><strong class="water-color" id="cal-day-water">0 ml</strong></div>
+                </div>
+                <ul class="history-list" id="cal-day-logs">
+                    <li class="empty-msg">Click any date on the calendar to inspect its workout history.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+(function () {
+    var STORAGE_KEY = 'jurane_fitness_calendar_v1';
+    var STEP_GOAL = 10000, CAL_GOAL = 500, WATER_GOAL = 2500;
+
+    function getTodayKey() {
+        var d = new Date();
+        var m = d.getMonth() + 1;
+        var day = d.getDate();
+        return d.getFullYear() + '-' + (m < 10 ? '0' + m : m) + '-' + (day < 10 ? '0' + day : day);
+    }
+
+    var todayKey = getTodayKey();
+    var selectedCalDate = todayKey;
+    var calViewYear = new Date().getFullYear();
+    var calViewMonth = new Date().getMonth();
+    var chartMetric = 'calories';
+
+    var appData = { bmiScore: '--', bmiCategory: 'Not calculated yet', bmiColor: '#e040fb', days: {} };
+
+    function ensureDay(dateKey) {
+        if (!appData.days[dateKey]) {
+            appData.days[dateKey] = { steps: 0, calories: 0, water: 0, logs: [] };
+        }
+        return appData.days[dateKey];
+    }
+
+    function loadData() {
+        try {
+            var raw = localStorage.getItem(STORAGE_KEY);
+            if (raw) {
+                var parsed = JSON.parse(raw);
+                if (parsed && parsed.days) appData = parsed;
+            }
+        } catch (e) {}
+        ensureDay(todayKey);
+    }
+
+    function saveData() {
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(appData)); } catch (e) {}
+    }
+
+    function getTimeString() {
+        var now = new Date();
+        var hours = now.getHours();
+        var mins = now.getMinutes();
+        var ampm = hours >= 12 ? 'PM' : 'AM';
+        hours = hours % 12 || 12;
+        return hours + ':' + (mins < 10 ? '0' + mins : mins) + ' ' + ampm;
+    }
+
+    document.getElementById('current-date').textContent = new Date().toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+    function renderDashboard() {
+        var today = ensureDay(todayKey);
+        var stepPct = Math.min(100, Math.round((today.steps / STEP_GOAL) * 100));
+        document.getElementById('step-display').textContent = today.steps.toLocaleString();
+        document.getElementById('step-sub').textContent = 'Goal: 10,000 steps (' + stepPct + '%)';
+        document.getElementById('step-bar').style.width = stepPct + '%';
+
+        var calPct = Math.min(100, Math.round((today.calories / CAL_GOAL) * 100));
+        document.getElementById('cal-display').textContent = today.calories.toLocaleString() + ' kcal';
+        document.getElementById('cal-sub').textContent = 'Goal: 500 kcal (' + calPct + '%)';
+        document.getElementById('cal-bar').style.width = calPct + '%';
+
+        var waterPct = Math.min(100, Math.round((today.water / WATER_GOAL) * 100));
+        document.getElementById('water-display').textContent = today.water.toLocaleString() + ' ml';
+        document.getElementById('water-sub').textContent = 'Goal: 2,500 ml (' + waterPct + '%)';
+        document.getElementById('water-bar').style.width = waterPct + '%';
+
+        document.getElementById('kpi-bmi-val').textContent = appData.bmiScore;
+        document.getElementById('kpi-bmi-val').style.color = appData.bmiColor;
+        document.getElementById('kpi-bmi-cat').textContent = appData.bmiCategory;
+        document.getElementById('bmi-bar').style.width = appData.bmiScore !== '--' ? '100%' : '0%';
+        document.getElementById('bmi-bar').style.background = appData.bmiColor;
+
+        var list = document.getElementById('history-log');
+        list.innerHTML = '';
+        document.getElementById('log-count').textContent = today.logs.length + ' entries';
+
+        if (today.logs.length === 0) {
+            list.innerHTML = '<li class="empty-msg">No activities logged yet today.</li>';
+        } else {
+            for (var i = 0; i < today.logs.length; i++) {
+                var entry = today.logs[i];
+                var li = document.createElement('li');
+                li.className = 'history-item';
+                li.style.borderLeftColor = entry.color || '#00adb5';
+                var left = document.createElement('span');
+                left.textContent = entry.text;
+                var right = document.createElement('span');
+                right.style.color = '#9e9e9e';
+                right.textContent = entry.time;
+                li.appendChild(left);
+                li.appendChild(right);
+                list.appendChild(li);
+            }
+        }
+    }
+
+    function renderConsistencyChart() {
+        var container = document.getElementById('consistency-chart');
+        if (!container) return;
+        container.innerHTML = '';
+
+        var dayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        var last7 = [];
+        var activeDaysCount = 0;
+
+        for (var offset = 6; offset >= 0; offset--) {
+            var d = new Date();
+            d.setDate(d.getDate() - offset);
+            var m = d.getMonth() + 1;
+            var dayNum = d.getDate();
+            var key = d.getFullYear() + '-' + (m < 10 ? '0' + m : m) + '-' + (dayNum < 10 ? '0' + dayNum : dayNum);
+            var rec = appData.days[key] || { steps: 0, calories: 0, water: 0, logs: [] };
+
+            var val = chartMetric === 'calories' ? rec.calories : (chartMetric === 'steps' ? rec.steps : rec.logs.length);
+            if (rec.calories > 0 || rec.steps > 0 || rec.logs.length > 0) activeDaysCount++;
+
+            last7.push({ label: offset === 0 ? 'Today' : dayLabels[d.getDay()], value: val, isToday: offset === 0 });
+        }
+
+        var maxVal = 1;
+        for (var i = 0; i < last7.length; i++) {
+            if (last7[i].value > maxVal) maxVal = last7[i].value;
+        }
+
+        for (var j = 0; j < last7.length; j++) {
+            var item = last7[j];
+            var pct = item.value > 0 ? Math.max(8, Math.round((item.value / maxVal) * 100)) : 4;
+            var col = document.createElement('div');
+            col.className = 'bar-col';
+
+            var valEl = document.createElement('div');
+            valEl.className = 'bar-val';
+            valEl.textContent = item.value > 0 ? item.value.toLocaleString() : '0';
+
+            var track = document.createElement('div');
+            track.className = 'bar-track';
+
+            var fill = document.createElement('div');
+            fill.className = 'bar-fill' + (item.isToday ? ' today-bar' : '');
+            fill.style.height = pct + '%';
+            if (!item.isToday) {
+                fill.style.background = chartMetric === 'calories' ? '#ff5722' : (chartMetric === 'steps' ? '#4caf50' : '#e040fb');
+            }
+
+            track.appendChild(fill);
+            var dayEl = document.createElement('div');
+            dayEl.className = 'bar-day';
+            dayEl.textContent = item.label;
+
+            col.appendChild(valEl);
+            col.appendChild(track);
+            col.appendChild(dayEl);
+            container.appendChild(col);
+        }
+
+        var streak = 0;
+        for (var s = 0; s < 365; s++) {
+            var sd = new Date();
+            sd.setDate(sd.getDate() - s);
+            var sm = sd.getMonth() + 1;
+            var sday = sd.getDate();
+            var skey = sd.getFullYear() + '-' + (sm < 10 ? '0' + sm : sm) + '-' + (sday < 10 ? '0' + sday : sday);
+            var srec = appData.days[skey];
+            if (srec && (srec.calories > 0 || srec.steps > 0 || srec.logs.length > 0)) streak++;
+            else if (s > 0) break;
+        }
+
+        document.getElementById('consistency-score').textContent = 'Active Days: ' + activeDaysCount + ' / 7 days';
+        document.getElementById('consistency-streak').textContent = 'Current Streak: ' + streak + (streak === 1 ? ' day' : ' days');
+    }
+
+    function renderCalendar() {
+        var monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+        document.getElementById('cal-month-label').textContent = monthNames[calViewMonth] + ' ' + calViewYear;
+
+        var grid = document.getElementById('calendar-grid');
+        grid.innerHTML = '';
+
+        var firstDay = new Date(calViewYear, calViewMonth, 1).getDay();
+        var daysInMonth = new Date(calViewYear, calViewMonth + 1, 0).getDate();
+
+        for (var b = 0; b < firstDay; b++) {
+            var blank = document.createElement('div');
+            blank.className = 'cal-day empty';
+            grid.appendChild(blank);
+        }
+
+        for (var d = 1; d <= daysInMonth; d++) {
+            var mStr = (calViewMonth + 1) < 10 ? '0' + (calViewMonth + 1) : (calViewMonth + 1);
+            var dStr = d < 10 ? '0' + d : d;
+            var key = calViewYear + '-' + mStr + '-' + dStr;
+
+            var cell = document.createElement('div');
+            cell.className = 'cal-day' + (key === selectedCalDate ? ' selected' : '');
+            cell.setAttribute('data-date', key);
+
+            var numSpan = document.createElement('span');
+            numSpan.textContent = d;
+            cell.appendChild(numSpan);
+
+            var dayRecord = appData.days[key];
+            if (dayRecord && (dayRecord.logs.length > 0 || dayRecord.steps > 0 || dayRecord.calories > 0)) {
+                var dot = document.createElement('div');
+                dot.className = 'cal-dot';
+                cell.appendChild(dot);
+            }
+            grid.appendChild(cell);
+        }
+
+        renderSelectedDayDetails(selectedCalDate);
+    }
+
+    function renderSelectedDayDetails(dateKey) {
+        document.getElementById('selected-date-title').textContent = 'Records for ' + dateKey;
+        var record = appData.days[dateKey];
+
+        if (!record) {
+            document.getElementById('cal-day-steps').textContent = '0';
+            document.getElementById('cal-day-cals').textContent = '0 kcal';
+            document.getElementById('cal-day-water').textContent = '0 ml';
+            document.getElementById('cal-day-logs').innerHTML = '<li class="empty-msg">No exercise records saved for this date.</li>';
+            return;
+        }
+                document.getElementById('cal-day-steps').textContent = record.steps.toLocaleString();
+        document.getElementById('cal-day-cals').textContent = record.calories.toLocaleString() + ' kcal';
+        document.getElementById('cal-day-water').textContent = record.water.toLocaleString() + ' ml';
+
+        var logList = document.getElementById('cal-day-logs');
+        logList.innerHTML = '';
+
+        if (record.logs.length === 0) {
+            logList.innerHTML = '<li class="empty-msg">No exercise records saved for this date.</li>';
+        } else {
+            for (var i = 0; i < record.logs.length; i++) {
+                var item = record.logs[i];
+                var li = document.createElement('li');
+                li.className = 'history-item';
+                li.style.borderLeftColor = item.color || '#00adb5';
+                var left = document.createElement('span');
+                left.textContent = item.text;
+                var right = document.createElement('span');
+                right.style.color = '#9e9e9e';
+                right.textContent = item.time;
+                li.appendChild(left);
+                li.appendChild(right);
+                logList.appendChild(li);
+            }
+        }
+    }
+
+    function addTodayLog(text, color) {
+        var today = ensureDay(todayKey);
+        today.logs.unshift({ text: text, time: getTimeString(), color: color });
+        saveData();
+        renderDashboard();
+        renderConsistencyChart();
+    }
+
+    function switchView(viewName) {
+        var dashView = document.getElementById('view-dashboard');
+        var calView = document.getElementById('view-calendar');
+        var navDash = document.getElementById('nav-dashboard');
+        var navCal = document.getElementById('nav-calendar');
+
+        if (viewName === 'calendar') {
+            dashView.style.display = 'none';
+            calView.style.display = 'block';
+            navDash.className = 'nav-btn';
+            navCal.className = 'nav-btn active';
+            renderCalendar();
+        } else {
+            dashView.style.display = 'block';
+            calView.style.display = 'none';
+            navDash.className = 'nav-btn active';
+            navCal.className = 'nav-btn';
+            renderDashboard();
+            renderConsistencyChart();
+        }
+    }
+
+    document.addEventListener('click', function (event) {
+        var target = event.target;
+        var id = target ? target.id : '';
+
+        var metricBtn = target && target.getAttribute ? target.getAttribute('data-chart-metric') : null;
+        if (metricBtn) {
+            chartMetric = metricBtn;
+            var tabs = document.querySelectorAll('.chart-tab');
+            for (var t = 0; t < tabs.length; t++) {
+                tabs[t].className = tabs[t].getAttribute('data-chart-metric') === metricBtn ? 'chart-tab active' : 'chart-tab';
+            }
+            renderConsistencyChart();
+            return;
+        }
+
+        if (id === 'nav-dashboard') { switchView('dashboard'); return; }
+        if (id === 'nav-calendar') { switchView('calendar'); return; }
+        if (id === 'cal-prev') {
+            calViewMonth--;
+            if (calViewMonth < 0) { calViewMonth = 11; calViewYear--; }
+            renderCalendar();
+            return;
+        }
+        if (id === 'cal-next') {
+            calViewMonth++;
+            if (calViewMonth > 11) { calViewMonth = 0; calViewYear++; }
+            renderCalendar();
+            return;
+        }
+
+        var calCell = target.closest ? target.closest('.cal-day') : null;
+        if (calCell && calCell.getAttribute('data-date')) {
+            selectedCalDate = calCell.getAttribute('data-date');
+            renderCalendar();
+            return;
+        }
+
+        if (id === 'btn-bmi') {
+            var w = parseFloat(document.getElementById('weight-input').value);
+            var h = parseFloat(document.getElementById('height-input').value);
+            if (!w || !h || w <= 0 || h <= 0) { alert('Please enter both weight (kg) and height (cm).'); return; }
+            var meters = h / 100;
+            var bmi = w / (meters * meters);
+            var score = bmi.toFixed(1);
+            var label = bmi < 18.5 ? 'Underweight (Small)' : (bmi <= 24.9 ? 'Normal Weight' : (bmi <= 29.9 ? 'Overweight' : 'Obese'));
+            var color = bmi < 18.5 ? '#00adb5' : (bmi <= 24.9 ? '#4caf50' : (bmi <= 29.9 ? '#ffc107' : '#f44336'));
+
+            appData.bmiScore = score;
+            appData.bmiCategory = label;
+            appData.bmiColor = color;
+
+            document.getElementById('bmi-score').textContent = 'BMI: ' + score;
+            var catEl = document.getElementById('bmi-category');
+            catEl.textContent = label;
+            catEl.style.color = color;
+            document.getElementById('bmi-result-box').style.display = 'flex';
+            addTodayLog('Calculated BMI: ' + score + ' (' + label + ')', color);
+        } else if (id === 'btn-steps') {
+            var stepInput = document.getElementById('step-input');
+            var steps = parseInt(stepInput.value, 10);
+            if (!steps || steps <= 0) { alert('Please enter a step count greater than 0.'); return; }
+            var today = ensureDay(todayKey);
+            today.steps += steps;
+            today.calories += Math.round(steps * 0.04);
+            stepInput.value = '';
+            addTodayLog('Walked ' + steps.toLocaleString() + ' steps', '#4caf50');
+        } else if (id === 'btn-water') {
+            var select = document.getElementById('water-input');
+            var ml = parseInt(select.value, 10);
+            if (ml > 0) {
+                var todayW = ensureDay(todayKey);
+                todayW.water += ml;
+                addTodayLog('Drank ' + ml + ' ml water', '#00adb5');
+            }
+        } else if (id === 'btn-workout') {
+            var nameIn = document.getElementById('workout-input');
+            var burnIn = document.getElementById('burn-input');
+            var wName = nameIn.value.trim();
+            var kcal = parseInt(burnIn.value, 10);
+            if (!wName || !kcal || kcal <= 0) { alert('Please enter a workout name and calories burned.'); return; }
+            var todayEx = ensureDay(todayKey);
+            todayEx.calories += kcal;
+            nameIn.value = '';
+            burnIn.value = '';
+            addTodayLog(wName + ' (' + kcal + ' kcal burned)', '#ff5722');
+        } else if (id === 'btn-export') {
+            var blob = new Blob([JSON.stringify(appData, null, 2)], { type: 'application/json' });
+            var url = URL.createObjectURL(blob);
+            var a = document.createElement('a');
+            a.href = url;
+            a.download = 'fitness_calendar_backup.json';
+            a.click();
+            URL.revokeObjectURL(url);
+        } else if (id === 'btn-import-trigger') {
+            document.getElementById('import-file').click();
+        } else if (id === 'btn-reset') {
+            if (confirm('Reset all stats and logs for today?')) {
+                appData.days[todayKey] = { steps: 0, calories: 0, water: 0, logs: [] };
+                document.getElementById('bmi-result-box').style.display = 'none';
+                saveData();
+                renderDashboard();
+                renderConsistencyChart();
+            }
+        }
+    });
+
+    document.getElementById('import-file').addEventListener('change', function (event) {
+        var file = event.target.files;
+        if (!file) return;
+        var reader = new FileReader();
+        reader.onload = function (e) {
+            try {
+                var imported = JSON.parse(e.target.result);
+                if (imported && imported.days) {
+                    appData = imported;
+                    ensureDay(todayKey);
+                    saveData();
+                    renderDashboard();
+                    renderConsistencyChart();
+                    alert('Backup restored!');
+                } else {
+                    alert('Invalid backup file.');
+                }
+            } catch (err) {
+                alert('Could not read backup file.');
+            }
+        };
+        reader.readAsText(file);
+    });
+
+    loadData();
+    renderDashboard();
+    renderConsistencyChart();
+})();
+</script>
+</body>
+</html>
+    
+
+
