@@ -1,0 +1,389 @@
+import java.awt.*;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+import java.util.*;
+import javax.swing.*;
+import javax.swing.border.EmptyBorder;
+import javax.swing.border.LineBorder;
+
+public class NewJFrame extends JFrame {
+
+    private static final int STEP_GOAL = 10000;
+    private static final int CAL_GOAL = 500;
+    private static final int WATER_GOAL = 2500;
+
+    private int steps = 0;
+    private int calories = 0;
+    private int water = 0;
+    private double latestBmi = 0.0;
+    private String latestBmiCat = "Not calculated yet";
+
+    private final Color BG_DARK = new Color(18, 18, 26);
+    private final Color CARD_BG = new Color(26, 26, 38);
+    private final Color BORDER_COL = new Color(56, 56, 72);
+    private final Color PRIMARY = new Color(0, 173, 181);
+    private final Color GREEN = new Color(76, 175, 80);
+    private final Color ORANGE = new Color(255, 87, 34);
+    private final Color MAGENTA = new Color(160, 6, 112);
+    private final Color PURPLE_TEXT = new Color(224, 64, 251);
+    private final Color TEXT_MAIN = Color.WHITE;
+    private final Color TEXT_SUB = new Color(165, 165, 180);
+
+    private JLabel lblStepVal, lblStepSub, lblCalVal, lblCalSub, lblWaterVal, lblWaterSub, lblBmiVal, lblBmiCat;
+    private JProgressBar barSteps, barCal, barWater, barBmi;
+    private JTextField txtWeight, txtHeight, txtSteps, txtWorkout, txtBurn;
+    private JComboBox<String> cmbWater;
+    private JLabel lblBmiBanner, lblEntryCount;
+    private DefaultListModel<String> feedModel;
+    private Map<LocalDate, java.util.List<String>> historyByDate = new HashMap<>();
+
+    public NewJFrame() {
+        setTitle("FITNESS SQUAD DASHBOARD - TrackYourFit");
+        setSize(1100, 820);
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setLocationRelativeTo(null);
+        getContentPane().setBackground(BG_DARK);
+        setLayout(new BorderLayout(15, 15));
+
+        JPanel wrapper = new JPanel(new BorderLayout(15, 15));
+        wrapper.setBackground(BG_DARK);
+        wrapper.setBorder(new EmptyBorder(18, 18, 18, 18));
+        add(wrapper);
+
+        JPanel topBar = createCardPanel(new BorderLayout());
+        JPanel brandPanel = new JPanel(new GridLayout(2, 1));
+        brandPanel.setOpaque(false);
+        JLabel title = new JLabel("FITNESS SQUAD DASHBOARD");
+        title.setFont(new Font("Segoe UI", Font.BOLD, 22));
+        title.setForeground(PRIMARY);
+        JLabel subtitle = new JLabel("Daily Health & Activity Tracker  |  " + LocalDate.now().format(DateTimeFormatter.ofPattern("MMMM dd, yyyy")));
+        subtitle.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        subtitle.setForeground(TEXT_SUB);
+        brandPanel.add(title);
+        brandPanel.add(subtitle);
+        topBar.add(brandPanel, BorderLayout.WEST);
+
+        JPanel topActions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
+        topActions.setOpaque(false);
+        JButton btnHistory = createStyledButton("View Date History", new Color(34, 34, 46));
+        JButton btnReset = createStyledButton("Reset Today", new Color(34, 34, 46));
+        topActions.add(btnHistory);
+        topActions.add(btnReset);
+        topBar.add(topActions, BorderLayout.EAST);
+        wrapper.add(topBar, BorderLayout.NORTH);
+
+        JPanel centerPanel = new JPanel(new BorderLayout(15, 15));
+        centerPanel.setOpaque(false);
+        wrapper.add(centerPanel, BorderLayout.CENTER);
+
+        JPanel kpiGrid = new JPanel(new GridLayout(1, 4, 15, 0));
+        kpiGrid.setOpaque(false);
+
+        lblStepVal = new JLabel("0");
+        lblStepSub = new JLabel("Goal: 10,000 steps (0%)");
+        barSteps = createProgressBar(GREEN);
+        kpiGrid.add(createKpiCard("STEPS TAKEN", lblStepVal, GREEN, lblStepSub, barSteps));
+
+        lblCalVal = new JLabel("0 kcal");
+        lblCalSub = new JLabel("Goal: 500 kcal (0%)");
+        barCal = createProgressBar(ORANGE);
+        kpiGrid.add(createKpiCard("CALORIES BURNED", lblCalVal, ORANGE, lblCalSub, barCal));
+
+        lblWaterVal = new JLabel("0 ml");
+        lblWaterSub = new JLabel("Goal: 2,500 ml (0%)");
+        barWater = createProgressBar(PRIMARY);
+        kpiGrid.add(createKpiCard("WATER INTAKE", lblWaterVal, PRIMARY, lblWaterSub, barWater));
+
+        lblBmiVal = new JLabel("--");
+        lblBmiCat = new JLabel("Not calculated yet");
+        barBmi = createProgressBar(PURPLE_TEXT);
+        kpiGrid.add(createKpiCard("LATEST BMI", lblBmiVal, PURPLE_TEXT, lblBmiCat, barBmi));
+
+        centerPanel.add(kpiGrid, BorderLayout.NORTH);
+
+        JPanel mainGrid = new JPanel(new GridLayout(1, 2, 18, 0));
+        mainGrid.setOpaque(false);
+
+        JPanel leftPanel = createCardPanel(new BorderLayout(0, 12));
+        JLabel leftTitle = new JLabel("Activity & Body Metrics");
+        leftTitle.setFont(new Font("Segoe UI", Font.BOLD, 16));
+        leftTitle.setForeground(TEXT_MAIN);
+        leftPanel.add(leftTitle, BorderLayout.NORTH);
+
+        JPanel formsStack = new JPanel(new GridLayout(4, 1, 0, 10));
+        formsStack.setOpaque(false);
+
+        txtWeight = createTextField("Weight (kg)");
+        txtHeight = createTextField("Height (cm)");
+        JButton btnBmi = createStyledButton("Check BMI", MAGENTA);
+        lblBmiBanner = new JLabel("BMI: --");
+        lblBmiBanner.setForeground(TEXT_MAIN);
+        lblBmiBanner.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        formsStack.add(createLogBox("BMI Calculator", new Component[]{txtWeight, txtHeight, btnBmi}, null));
+
+        txtSteps = createTextField("e.g., 2500 steps");
+        JButton btnSteps = createStyledButton("Add Steps", GREEN);
+        formsStack.add(createLogBox("Log Daily Steps", new Component[]{txtSteps, btnSteps}, null));
+
+        cmbWater = new JComboBox<>(new String[]{
+            "Glass (250 ml)", "Bottle (500 ml)", "Large Flask (750 ml)", "Gallon (1000 ml)"
+        });
+        cmbWater.setBackground(new Color(34, 34, 46));
+        cmbWater.setForeground(Color.WHITE);
+        JButton btnWater = createStyledButton("Drink", ORANGE);
+        formsStack.add(createLogBox("Log Water Hydration", new Component[]{cmbWater, btnWater}, null));
+
+        txtWorkout = createTextField("Activity (e.g., Biking)");
+        txtBurn = createTextField("kcal");
+        JButton btnWorkout = createStyledButton("Log Workout", PRIMARY);
+        formsStack.add(createLogBox("Log Workout Session", new Component[]{txtWorkout, txtBurn, btnWorkout}, null));
+
+        leftPanel.add(formsStack, BorderLayout.CENTER);
+        mainGrid.add(leftPanel);
+
+        JPanel rightPanel = createCardPanel(new BorderLayout(0, 12));
+        JPanel feedHeader = new JPanel(new BorderLayout());
+        feedHeader.setOpaque(false);
+        JLabel rightTitle = new JLabel("Today's Activity Feed");
+        rightTitle.setFont(new Font("Segoe UI", Font.BOLD, 16));
+        rightTitle.setForeground(TEXT_MAIN);
+        lblEntryCount = new JLabel("0 entries");
+        lblEntryCount.setForeground(TEXT_SUB);
+        feedHeader.add(rightTitle, BorderLayout.WEST);
+        feedHeader.add(lblEntryCount, BorderLayout.EAST);
+        rightPanel.add(feedHeader, BorderLayout.NORTH);
+
+        feedModel = new DefaultListModel<>();
+        JList<String> feedList = new JList<>(feedModel);
+        feedList.setBackground(new Color(32, 32, 44));
+        feedList.setForeground(TEXT_MAIN);
+        feedList.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        feedList.setFixedCellHeight(34);
+        JScrollPane scrollPane = new JScrollPane(feedList);
+        scrollPane.setBorder(new LineBorder(BORDER_COL, 1));
+        rightPanel.add(scrollPane, BorderLayout.CENTER);
+
+        mainGrid.add(rightPanel);
+        centerPanel.add(mainGrid, BorderLayout.CENTER);
+
+        btnBmi.addActionListener(e -> calculateBmi());
+        btnSteps.addActionListener(e -> addSteps());
+        btnWater.addActionListener(e -> addWater());
+        btnWorkout.addActionListener(e -> logWorkout());
+        btnReset.addActionListener(e -> resetToday());
+        btnHistory.addActionListener(e -> showHistoryDialog());
+    }
+
+    private void calculateBmi() {
+        try {
+            double w = Double.parseDouble(txtWeight.getText().trim());
+            double hCm = Double.parseDouble(txtHeight.getText().trim());
+            if (w <= 0 || hCm <= 0) throw new NumberFormatException();
+            double hM = hCm / 100.0;
+            latestBmi = w / (hM * hM);
+
+            if (latestBmi < 18.5) latestBmiCat = "Underweight";
+            else if (latestBmi < 25.0) latestBmiCat = "Normal Weight";
+            else if (latestBmi < 30.0) latestBmiCat = "Overweight";
+            else latestBmiCat = "Obese";
+
+            String formatted = String.format("%.1f", latestBmi);
+            lblBmiBanner.setText("BMI: " + formatted + " (" + latestBmiCat + ")");
+            lblBmiVal.setText(formatted);
+            lblBmiCat.setText(latestBmiCat);
+            barBmi.setValue((int) Math.min(100, (latestBmi / 40.0) * 100));
+            addLog("Checked BMI: " + formatted + " (" + latestBmiCat + ")");
+        } catch (NumberFormatException ex) {
+            JOptionPane.showMessageDialog(this, "Enter valid positive numbers for weight and height.");
+        }
+    }
+
+    private void addSteps() {
+        try {
+            int val = Integer.parseInt(txtSteps.getText().trim());
+            if (val <= 0) throw new NumberFormatException();
+            steps += val;
+            int burnedFromSteps = (int) Math.round(val * 0.04);
+            calories += burnedFromSteps;
+            txtSteps.setText("");
+            updateDashboard();
+            addLog("Added " + val + " steps (+" + burnedFromSteps + " kcal)");
+        } catch (NumberFormatException ex) {
+            JOptionPane.showMessageDialog(this, "Enter a valid step count.");
+        }
+    }
+
+    private void addWater() {
+        int[] amounts = {250, 500, 750, 1000};
+        int idx = cmbWater.getSelectedIndex();
+        int ml = amounts[idx];
+        water += ml;
+                updateDashboard();
+        addLog("Drank " + cmbWater.getSelectedItem());
+    }
+
+    private void logWorkout() {
+        String name = txtWorkout.getText().trim();
+        if (name.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Enter a workout activity name.");
+            return;
+        }
+        try {
+            int kcal = Integer.parseInt(txtBurn.getText().trim());
+            if (kcal <= 0) throw new NumberFormatException();
+            calories += kcal;
+            txtWorkout.setText("");
+            txtBurn.setText("");
+            updateDashboard();
+            addLog("Workout: " + name + " (-" + kcal + " kcal)");
+        } catch (NumberFormatException ex) {
+            JOptionPane.showMessageDialog(this, "Enter valid calories burned.");
+        }
+    }
+
+    private void resetToday() {
+        int confirm = JOptionPane.showConfirmDialog(this, "Reset all of today's fitness logs?", "Reset Today", JOptionPane.YES_NO_OPTION);
+        if (confirm == JOptionPane.YES_OPTION) {
+            steps = 0;
+            calories = 0;
+            water = 0;
+            feedModel.clear();
+            historyByDate.remove(LocalDate.now());
+            updateDashboard();
+            lblEntryCount.setText("0 entries");
+        }
+    }
+
+    private void showHistoryDialog() {
+        StringBuilder sb = new StringBuilder();
+        if (historyByDate.isEmpty()) {
+            sb.append("No workout history recorded yet.");
+        } else {
+            for (Map.Entry<LocalDate, java.util.List<String>> entry : historyByDate.entrySet()) {
+                sb.append("=== ").append(entry.getKey()).append(" ===\n");
+                for (String item : entry.getValue()) {
+                    sb.append("  • ").append(item).append("\n");
+                }
+                sb.append("\n");
+            }
+        }
+        JTextArea area = new JTextArea(sb.toString(), 15, 40);
+        area.setEditable(false);
+        JOptionPane.showMessageDialog(this, new JScrollPane(area), "Exercise History Log", JOptionPane.INFORMATION_MESSAGE);
+    }
+
+    private void updateDashboard() {
+        int stepPct = Math.min(100, (int) ((steps * 100.0) / STEP_GOAL));
+        lblStepVal.setText(String.format("%,d", steps));
+        lblStepSub.setText("Goal: 10,000 steps (" + stepPct + "%)");
+        barSteps.setValue(stepPct);
+
+        int calPct = Math.min(100, (int) ((calories * 100.0) / CAL_GOAL));
+        lblCalVal.setText(calories + " kcal");
+        lblCalSub.setText("Goal: 500 kcal (" + calPct + "%)");
+        barCal.setValue(calPct);
+
+        int waterPct = Math.min(100, (int) ((water * 100.0) / WATER_GOAL));
+        lblWaterVal.setText(water + " ml");
+        lblWaterSub.setText("Goal: 2,500 ml (" + waterPct + "%)");
+        barWater.setValue(waterPct);
+    }
+
+    private void addLog(String message) {
+        String time = LocalTime.now().format(DateTimeFormatter.ofPattern("hh:mm a"));
+        String entry = "[" + time + "]  " + message;
+        feedModel.add(0, entry);
+        lblEntryCount.setText(feedModel.size() + " entries");
+        historyByDate.computeIfAbsent(LocalDate.now(), k -> new ArrayList<>()).add(entry);
+    }
+
+    private JPanel createCardPanel(LayoutManager layout) {
+        JPanel p = new JPanel(layout);
+        p.setBackground(CARD_BG);
+        p.setBorder(BorderFactory.createCompoundBorder(
+            new LineBorder(BORDER_COL, 1, true),
+            new EmptyBorder(14, 16, 14, 16)
+        ));
+        return p;
+    }
+
+    private JPanel createKpiCard(String title, JLabel valLabel, Color accent, JLabel subLabel, JProgressBar bar) {
+        JPanel card = createCardPanel(new GridLayout(4, 1, 0, 4));
+        JLabel lblTitle = new JLabel(title);
+        lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 11));
+        lblTitle.setForeground(TEXT_SUB);
+
+        valLabel.setFont(new Font("Segoe UI", Font.BOLD, 24));
+        valLabel.setForeground(accent);
+
+        subLabel.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        subLabel.setForeground(TEXT_SUB);
+
+        card.add(lblTitle);
+        card.add(valLabel);
+        card.add(subLabel);
+        card.add(bar);
+        return card;
+    }
+
+    private JPanel createLogBox(String title, Component[] inputs, JLabel extraBanner) {
+        JPanel box = new JPanel(new BorderLayout(0, 6));
+        box.setBackground(new Color(32, 32, 46));
+        box.setBorder(BorderFactory.createCompoundBorder(
+            new LineBorder(BORDER_COL, 1, true),
+            new EmptyBorder(8, 10, 8, 10)
+        ));
+
+        JLabel lbl = new JLabel(title);
+        lbl.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        lbl.setForeground(TEXT_SUB);
+        box.add(lbl, BorderLayout.NORTH);
+
+        JPanel row = new JPanel(new GridLayout(1, inputs.length, 8, 0));
+        row.setOpaque(false);
+        for (Component c : inputs) row.add(c);
+        box.add(row, BorderLayout.CENTER);
+
+        if (extraBanner != null) box.add(extraBanner, BorderLayout.SOUTH);
+        return box;
+    }
+
+    private JTextField createTextField(String tooltip) {
+        JTextField tf = new JTextField();
+        tf.setBackground(new Color(22, 22, 32));
+        tf.setForeground(Color.WHITE);
+        tf.setCaretColor(Color.WHITE);
+        tf.setToolTipText(tooltip);
+        tf.setBorder(BorderFactory.createCompoundBorder(
+            new LineBorder(BORDER_COL, 1),
+            new EmptyBorder(4, 8, 4, 8)
+        ));
+        return tf;
+    }
+
+    private JButton createStyledButton(String text, Color bg) {
+        JButton btn = new JButton(text);
+        btn.setBackground(bg);
+        btn.setForeground(Color.WHITE);
+        btn.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        btn.setFocusPainted(false);
+        btn.setBorderPainted(false);
+        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        return btn;
+    }
+
+    private JProgressBar createProgressBar(Color fg) {
+        JProgressBar bar = new JProgressBar(0, 100);
+        bar.setValue(0);
+        bar.setForeground(fg);
+        bar.setBackground(new Color(45, 45, 60));
+        bar.setBorderPainted(false);
+        return bar;
+    }
+
+    public static void main(String[] args) {
+        SwingUtilities.invokeLater(() -> new NewJFrame().setVisible(true));
+    }
+}
+
