@@ -1,0 +1,512 @@
+import java.awt.*;
+import java.awt.event.*;
+import java.time.*;
+import java.time.format.DateTimeFormatter;
+import java.util.*;
+import javax.swing.*;
+import javax.swing.border.*;
+
+public class NewJFrame extends JFrame {
+
+    private static final int STEP_GOAL = 10000, CAL_GOAL = 500, WATER_GOAL = 2500;
+    private final Color BG_DARK = new Color(18, 18, 26), CARD_BG = new Color(26, 26, 38),
+            BORDER_COL = new Color(56, 56, 72), PRIMARY = new Color(0, 173, 181),
+            GREEN = new Color(76, 175, 80), ORANGE = new Color(255, 87, 34),
+            MAGENTA = new Color(160, 6, 112), PURPLE = new Color(224, 64, 251),
+            TEXT_MAIN = Color.WHITE, TEXT_SUB = new Color(165, 165, 180);
+
+    private static class DayData {
+        int steps = 0, calories = 0, water = 0;
+        java.util.List<String> logs = new ArrayList<>();
+    }
+
+    private Map<LocalDate, DayData> records = new HashMap<>();
+    private LocalDate today = LocalDate.now();
+    private LocalDate selectedCalDate = today;
+    private YearMonth currentMonth = YearMonth.from(today);
+
+    private CardLayout viewLayout = new CardLayout();
+    private JPanel viewContainer = new JPanel(viewLayout);
+    private JButton btnTabDash, btnTabCal;
+
+    private JLabel lblStepVal, lblStepSub, lblCalVal, lblCalSub, lblWaterVal, lblWaterSub, lblBmiVal, lblBmiCat, lblEntryCount;
+    private JProgressBar barSteps, barCal, barWater, barBmi;
+    private JTextField txtWeight, txtHeight, txtSteps, txtWorkout, txtBurn;
+    private JComboBox<String> cmbWater;
+    private DefaultListModel<String> feedModel = new DefaultListModel<>();
+
+    private JLabel lblCalMonth, lblSelDateTitle, lblCalSteps, lblCalCals, lblCalWater;
+    private JPanel calGridPanel;
+    private DefaultListModel<String> calLogsModel = new DefaultListModel<>();
+
+    public NewJFrame() {
+        setTitle("FITNESS SQUAD DASHBOARD - TrackYourFit");
+        setSize(1120, 760);
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setLocationRelativeTo(null);
+        getContentPane().setBackground(BG_DARK);
+
+        JPanel wrapper = new JPanel(new BorderLayout(15, 15));
+        wrapper.setBackground(BG_DARK);
+        wrapper.setBorder(new EmptyBorder(18, 18, 18, 18));
+        add(wrapper);
+
+        wrapper.add(buildTopBar(), BorderLayout.NORTH);
+
+        viewContainer.setOpaque(false);
+        viewContainer.add(buildDashboardView(), "DASH");
+        viewContainer.add(buildCalendarView(), "CAL");
+        wrapper.add(viewContainer, BorderLayout.CENTER);
+    }
+
+    private JPanel buildTopBar() {
+        JPanel top = card(new BorderLayout());
+        JPanel brand = new JPanel(new GridLayout(2, 1));
+        brand.setOpaque(false);
+        JLabel t = new JLabel("FITNESS SQUAD DASHBOARD");
+        t.setFont(new Font("Segoe UI", Font.BOLD, 22));
+        t.setForeground(PRIMARY);
+        JLabel sub = new JLabel("Daily Health & Activity Tracker  |  " + today.format(DateTimeFormatter.ofPattern("MMMM dd, yyyy")));
+        sub.setForeground(TEXT_SUB);
+        brand.add(t);
+        brand.add(sub);
+        top.add(brand, BorderLayout.WEST);
+
+        JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
+        actions.setOpaque(false);
+        btnTabDash = btn("Dashboard", PRIMARY);
+        btnTabCal = btn("Exercise Calendar", new Color(34, 34, 46));
+        JButton btnReset = btn("Reset Today", new Color(34, 34, 46));
+
+        btnTabDash.addActionListener(e -> switchView("DASH"));
+        btnTabCal.addActionListener(e -> switchView("CAL"));
+        btnReset.addActionListener(e -> resetToday());
+
+        actions.add(btnTabDash);
+        actions.add(btnTabCal);
+        actions.add(btnReset);
+        top.add(actions, BorderLayout.EAST);
+        return top;
+    }
+
+    private void switchView(String name) {
+        viewLayout.show(viewContainer, name);
+        btnTabDash.setBackground(name.equals("DASH") ? PRIMARY : new Color(34, 34, 46));
+        btnTabCal.setBackground(name.equals("CAL") ? PRIMARY : new Color(34, 34, 46));
+        if (name.equals("CAL")) {
+            refreshCalendar();
+            showSelectedDayDetails();
+        }
+    }
+
+    private JPanel buildDashboardView() {
+        JPanel dash = new JPanel(new BorderLayout(15, 15));
+        dash.setOpaque(false);
+
+        JPanel kpiGrid = new JPanel(new GridLayout(1, 4, 15, 0));
+        kpiGrid.setOpaque(false);
+
+        lblStepVal = new JLabel("0");
+        lblStepSub = new JLabel("Goal: 10,000 steps (0%)");
+        barSteps = bar(GREEN);
+        kpiGrid.add(kpiCard("STEPS TAKEN", lblStepVal, GREEN, lblStepSub, barSteps));
+
+        lblCalVal = new JLabel("0 kcal");
+        lblCalSub = new JLabel("Goal: 500 kcal (0%)");
+        barCal = bar(ORANGE);
+        kpiGrid.add(kpiCard("CALORIES BURNED", lblCalVal, ORANGE, lblCalSub, barCal));
+
+        lblWaterVal = new JLabel("0 ml");
+        lblWaterSub = new JLabel("Goal: 2,500 ml (0%)");
+        barWater = bar(PRIMARY);
+        kpiGrid.add(kpiCard("WATER INTAKE", lblWaterVal, PRIMARY, lblWaterSub, barWater));
+
+        lblBmiVal = new JLabel("--");
+        lblBmiCat = new JLabel("Not calculated yet");
+        barBmi = bar(PURPLE);
+        kpiGrid.add(kpiCard("LATEST BMI", lblBmiVal, PURPLE, lblBmiCat, barBmi));
+
+        dash.add(kpiGrid, BorderLayout.NORTH);
+
+        JPanel mainGrid = new JPanel(new GridLayout(1, 2, 18, 0));
+        mainGrid.setOpaque(false);
+
+        JPanel left = card(new BorderLayout(0, 12));
+        JLabel lTitle = new JLabel("Activity & Body Metrics");
+        lTitle.setFont(new Font("Segoe UI", Font.BOLD, 16));
+        lTitle.setForeground(TEXT_MAIN);
+        left.add(lTitle, BorderLayout.NORTH);
+
+        JPanel stack = new JPanel(new GridLayout(4, 1, 0, 10));
+        stack.setOpaque(false);
+
+        txtWeight = field("Weight (kg)");
+        txtHeight = field("Height (cm)");
+        JButton btnBmi = btn("Check BMI", MAGENTA);
+        btnBmi.addActionListener(e -> calcBmi());
+        stack.add(logBox("BMI Calculator", txtWeight, txtHeight, btnBmi));
+
+        txtSteps = field("Steps (e.g. 2500)");
+        JButton btnSteps = btn("Add Steps", GREEN);
+        btnSteps.addActionListener(e -> addSteps());
+        stack.add(logBox("Log Daily Steps", txtSteps, btnSteps));
+
+        cmbWater = new JComboBox<>(new String[]{"Glass (250 ml)", "Bottle (500 ml)", "Large Flask (750 ml)", "Gallon (1000 ml)"});
+        cmbWater.setBackground(new Color(34, 34, 46));
+        cmbWater.setForeground(Color.WHITE);
+        JButton btnWater = btn("Drink", ORANGE);
+        btnWater.addActionListener(e -> addWater());
+        stack.add(logBox("Log Water Hydration", cmbWater, btnWater));
+
+        txtWorkout = field("Activity (e.g. Biking)");
+        txtBurn = field("kcal");
+        JButton btnWork = btn("Log Workout", PRIMARY);
+        btnWork.addActionListener(e -> logWorkout());
+        stack.add(logBox("Log Workout Session", txtWorkout, txtBurn, btnWork));
+
+        left.add(stack, BorderLayout.CENTER);
+        mainGrid.add(left);
+
+        JPanel right = card(new BorderLayout(0, 12));
+        JPanel fHead = new JPanel(new BorderLayout());
+        fHead.setOpaque(false);
+        JLabel rTitle = new JLabel("Today's Activity Feed");
+        rTitle.setFont(new Font("Segoe UI", Font.BOLD, 16));
+        rTitle.setForeground(TEXT_MAIN);
+        lblEntryCount = new JLabel("0 entries");
+        lblEntryCount.setForeground(TEXT_SUB);
+        fHead.add(rTitle, BorderLayout.WEST);
+        fHead.add(lblEntryCount, BorderLayout.EAST);
+        right.add(fHead, BorderLayout.NORTH);
+
+        JList<String> list = new JList<>(feedModel);
+        list.setBackground(new Color(32, 32, 44));
+        list.setForeground(TEXT_MAIN);
+        list.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        list.setFixedCellHeight(34);
+        JScrollPane sp = new JScrollPane(list);
+        sp.setBorder(new LineBorder(BORDER_COL));
+        right.add(sp, BorderLayout.CENTER);
+
+        mainGrid.add(right);
+        dash.add(mainGrid, BorderLayout.CENTER);
+        return dash;
+    }
+
+    private JPanel buildCalendarView() {
+        JPanel calView = new JPanel(new GridLayout(1, 2, 18, 0));
+        calView.setOpaque(false);
+
+        JPanel left = card(new BorderLayout(0, 12));
+        JPanel header = new JPanel(new BorderLayout());
+        header.setOpaque(false);
+        JButton prev = btn("< Prev", new Color(34, 34, 46));
+        JButton next = btn("Next >", new Color(34, 34, 46));
+        lblCalMonth = new JLabel("", SwingConstants.CENTER);
+        lblCalMonth.setFont(new Font("Segoe UI", Font.BOLD, 17));
+        lblCalMonth.setForeground(TEXT_MAIN);
+
+        prev.addActionListener(e -> { currentMonth = currentMonth.minusMonths(1); refreshCalendar(); });
+        next.addActionListener(e -> { currentMonth = currentMonth.plusMonths(1); refreshCalendar(); });
+
+        header.add(prev, BorderLayout.WEST);
+        header.add(lblCalMonth, BorderLayout.CENTER);
+        header.add(next, BorderLayout.EAST);
+        left.add(header, BorderLayout.NORTH);
+
+        JPanel gridWrap = new JPanel(new BorderLayout(0, 6));
+        gridWrap.setOpaque(false);
+        JPanel weekHeaders = new JPanel(new GridLayout(1, 7, 6, 0));
+        weekHeaders.setOpaque(false);
+        for (String d : new String[]{"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"}) {
+            JLabel l = new JLabel(d, SwingConstants.CENTER);
+            l.setForeground(TEXT_SUB);
+            l.setFont(new Font("Segoe UI", Font.BOLD, 12));
+            weekHeaders.add(l);
+        }
+        gridWrap.add(weekHeaders, BorderLayout.NORTH);
+
+        calGridPanel = new JPanel(new GridLayout(6, 7, 6, 6));
+        calGridPanel.setOpaque(false);
+        gridWrap.add(calGridPanel, BorderLayout.CENTER);
+        left.add(gridWrap, BorderLayout.CENTER);
+        calView.add(left);
+
+        JPanel right = card(new BorderLayout(0, 12));
+        lblSelDateTitle = new JLabel("Records for " + selectedCalDate);
+        lblSelDateTitle.setFont(new Font("Segoe UI", Font.BOLD, 16));
+        lblSelDateTitle.setForeground(TEXT_MAIN);
+
+        JPanel statsRow = new JPanel(new GridLayout(1, 3, 10, 0));
+        statsRow.setOpaque(false);
+        lblCalSteps = new JLabel("0", SwingConstants.CENTER);
+        lblCalCals = new JLabel("0 kcal", SwingConstants.CENTER);
+        lblCalWater = new JLabel("0 ml", SwingConstants.CENTER);
+        statsRow.add(miniStat("Steps", lblCalSteps, GREEN));
+        statsRow.add(miniStat("Calories", lblCalCals, ORANGE));
+        statsRow.add(miniStat("Water", lblCalWater, PRIMARY));
+
+        JPanel topRight = new JPanel(new BorderLayout(0, 12));
+        topRight.setOpaque(false);
+        topRight.add(lblSelDateTitle, BorderLayout.NORTH);
+        topRight.add(statsRow, BorderLayout.CENTER);
+        right.add(topRight, BorderLayout.NORTH);
+
+        JList<String> calList = new JList<>(calLogsModel);
+        calList.setBackground(new Color(32, 32, 44));
+        calList.setForeground(TEXT_MAIN);
+        calList.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        calList.setFixedCellHeight(34);
+        JScrollPane sp = new JScrollPane(calList);
+        sp.setBorder(new LineBorder(BORDER_COL));
+        right.add(sp, BorderLayout.CENTER);
+
+        calView.add(right);
+        return calView;
+    }
+
+    private void refreshCalendar() {
+        lblCalMonth.setText(currentMonth.format(DateTimeFormatter.ofPattern("MMMM yyyy")));
+        calGridPanel.removeAll();
+
+        LocalDate first = currentMonth.atDay(1);
+        int startOffset = first.getDayOfWeek().getValue() % 7;
+        int daysInMonth = currentMonth.lengthOfMonth();
+
+        for (int i = 0; i < 42; i++) {
+            int dayNum = i - startOffset + 1;
+            if (dayNum < 1 || dayNum > daysInMonth) {
+                JPanel empty = new JPanel();
+                empty.setOpaque(false);
+                calGridPanel.add(empty);
+            } else {
+                LocalDate date = currentMonth.atDay(dayNum);
+                DayData data = records.get(date);
+                boolean hasLogs = data != null && !data.logs.isEmpty();
+                boolean isSelected = date.equals(selectedCalDate);
+
+                JButton dayBtn = new JButton("<html><center>" + dayNum + (hasLogs ? "<br><font color='#4caf50'>●</font>" : "") + "</center></html>");
+                dayBtn.setForeground(TEXT_MAIN);
+                dayBtn.setFont(new Font("Segoe UI", isSelected ? Font.BOLD : Font.PLAIN, 13));
+                dayBtn.setBackground(isSelected ? new Color(0, 120, 128) : new Color(34, 34, 46));
+                dayBtn.setBorder(new LineBorder(isSelected ? PRIMARY : BORDER_COL, isSelected ? 2 : 1, true));
+                dayBtn.setFocusPainted(false);
+                dayBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+                dayBtn.addActionListener(e -> {
+                    selectedCalDate = date;
+                    refreshCalendar();
+                    showSelectedDayDetails();
+                });
+                calGridPanel.add(dayBtn);
+            }
+        }
+        calGridPanel.revalidate();
+        calGridPanel.repaint();
+    }
+
+    private void showSelectedDayDetails() {
+        lblSelDateTitle.setText("Records for " + selectedCalDate.toString());
+        DayData d = records.getOrDefault(selectedCalDate, new DayData());
+        lblCalSteps.setText(String.format("%,d", d.steps));
+        lblCalCals.setText(d.calories + " kcal");
+        lblCalWater.setText(d.water + " ml");
+        calLogsModel.clear();
+        if (d.logs.isEmpty()) {
+            calLogsModel.addElement("No activities logged on this date.");
+        } else {
+            for (String s : d.logs) calLogsModel.addElement(s);
+        }
+    }
+
+    private DayData getTodayData() {
+        return records.computeIfAbsent(today, k -> new DayData());
+    }
+
+    private void calcBmi() {
+        try {
+            double w = Double.parseDouble(getVal(txtWeight));
+            double h = Double.parseDouble(getVal(txtHeight)) / 100.0;
+            if (w <= 0 || h <= 0) throw new NumberFormatException();
+            double bmi = w / (h * h);
+            String cat = bmi < 18.5 ? "Underweight" : bmi < 25 ? "Normal Weight" : bmi < 30 ? "Overweight" : "Obese";
+            String fmt = String.format("%.1f", bmi);
+            lblBmiVal.setText(fmt);
+            lblBmiCat.setText(cat);
+            barBmi.setValue((int) Math.min(100, (bmi / 40.0) * 100));
+            logEntry("Calculated BMI: " + fmt + " (" + cat + ")");
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this, "Enter valid numbers for Weight (kg) and Height (cm).");
+        }
+    }
+
+    private void addSteps() {
+        try {
+            int s = Integer.parseInt(getVal(txtSteps));
+            if (s <= 0) throw new NumberFormatException();
+            DayData d = getTodayData();
+            d.steps += s;
+            int burned = (int) Math.round(s * 0.04);
+            d.calories += burned;
+            resetField(txtSteps, "Steps (e.g. 2500)");
+            updateKpis();
+            logEntry("Walked " + String.format("%,d", s) + " steps (+" + burned + " kcal)");
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this, "Enter a valid step count.");
+        }
+    }
+
+    private void addWater() {
+        int[] mlArr = {250, 500, 750, 1000};
+        int ml = mlArr[cmbWater.getSelectedIndex()];
+        getTodayData().water += ml;
+        updateKpis();
+        logEntry("Drank " + cmbWater.getSelectedItem());
+    }
+
+    private void logWorkout() {
+        String name = getVal(txtWorkout);
+        if (name.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Enter an activity name.");
+            return;
+        }
+        try {
+            int kcal = Integer.parseInt(getVal(txtBurn));
+            if (kcal <= 0) throw new NumberFormatException();
+            getTodayData().calories += kcal;
+            resetField(txtWorkout, "Activity (e.g. Biking)");
+            resetField(txtBurn, "kcal");
+            updateKpis();
+            logEntry("Workout: " + name + " (-" + kcal + " kcal)");
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this, "Enter valid calories burned.");
+        }
+    }
+
+    private void resetToday() {
+        if (JOptionPane.showConfirmDialog(this, "Reset today's logs?", "Confirm", JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION) {
+            records.remove(today);
+            feedModel.clear();
+            lblEntryCount.setText("0 entries");
+            updateKpis();
+        }
+    }
+
+    private void updateKpis() {
+        DayData d = getTodayData();
+        int sp = Math.min(100, (int) ((d.steps * 100.0) / STEP_GOAL));
+        lblStepVal.setText(String.format("%,d", d.steps));
+        lblStepSub.setText("Goal: 10,000 steps (" + sp + "%)");
+        barSteps.setValue(sp);
+
+        int cp = Math.min(100, (int) ((d.calories * 100.0) / CAL_GOAL));
+        lblCalVal.setText(d.calories + " kcal");
+        lblCalSub.setText("Goal: 500 kcal (" + cp + "%)");
+        barCal.setValue(cp);
+
+        int wp = Math.min(100, (int) ((d.water * 100.0) / WATER_GOAL));
+        lblWaterVal.setText(d.water + " ml");
+        lblWaterSub.setText("Goal: 2,500 ml (" + wp + "%)");
+        barWater.setValue(wp);
+    }
+
+    private void logEntry(String msg) {
+        String item = "[" + LocalTime.now().format(DateTimeFormatter.ofPattern("hh:mm a")) + "]  " + msg;
+        getTodayData().logs.add(0, item);
+        feedModel.add(0, item);
+        lblEntryCount.setText(feedModel.size() + " entries");
+    }
+
+    private JPanel card(LayoutManager l) {
+        JPanel p = new JPanel(l);
+        p.setBackground(CARD_BG);
+        p.setBorder(BorderFactory.createCompoundBorder(new LineBorder(BORDER_COL, 1, true), new EmptyBorder(14, 16, 14, 16)));
+        return p;
+    }
+
+    private JPanel kpiCard(String title, JLabel val, Color c, JLabel sub, JProgressBar b) {
+        JPanel p = card(new GridLayout(4, 1, 0, 4));
+        JLabel t = new JLabel(title);
+        t.setFont(new Font("Segoe UI", Font.BOLD, 11));
+        t.setForeground(TEXT_SUB);
+        val.setFont(new Font("Segoe UI", Font.BOLD, 24));
+        val.setForeground(c);
+        sub.setForeground(TEXT_SUB);
+        p.add(t); p.add(val); p.add(sub); p.add(b);
+        return p;
+    }
+
+    private JPanel miniStat(String label, JLabel val, Color c) {
+        JPanel p = new JPanel(new GridLayout(2, 1));
+        p.setBackground(new Color(32, 32, 46));
+        p.setBorder(BorderFactory.createCompoundBorder(new LineBorder(BORDER_COL), new EmptyBorder(8, 8, 8, 8)));
+        JLabel l = new JLabel(label, SwingConstants.CENTER);
+        l.setForeground(TEXT_SUB);
+        val.setFont(new Font("Segoe UI", Font.BOLD, 16));
+        val.setForeground(c);
+        p.add(l); p.add(val);
+        return p;
+    }
+
+    private JPanel logBox(String title, Component... comps) {
+        JPanel box = new JPanel(new BorderLayout(0, 6));
+        box.setBackground(new Color(32, 32, 46));
+        box.setBorder(BorderFactory.createCompoundBorder(new LineBorder(BORDER_COL, 1, true), new EmptyBorder(8, 10, 8, 10)));
+        JLabel l = new JLabel(title);
+        l.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        l.setForeground(TEXT_SUB);
+        box.add(l, BorderLayout.NORTH);
+        JPanel row = new JPanel(new GridLayout(1, comps.length, 8, 0));
+        row.setOpaque(false);
+        for (Component c : comps) row.add(c);
+        box.add(row, BorderLayout.CENTER);
+        return box;
+    }
+
+    private JTextField field(String placeholder) {
+        JTextField tf = new JTextField(placeholder);
+        tf.putClientProperty("ph", placeholder);
+        tf.setBackground(new Color(22, 22, 32));
+        tf.setForeground(TEXT_SUB);
+        tf.setCaretColor(Color.WHITE);
+        tf.setBorder(BorderFactory.createCompoundBorder(new LineBorder(BORDER_COL), new EmptyBorder(4, 8, 4, 8)));
+        tf.addFocusListener(new FocusAdapter() {
+            public void focusGained(FocusEvent e) {
+                if (tf.getText().trim().isEmpty()) { resetField(tf, placeholder); }
+            }
+        });
+        return tf;
+    }
+
+    private String getVal(JTextField tf) {
+        String txt = tf.getText().trim();
+        return txt.equals(tf.getClientProperty("ph")) ? "" : txt;
+    }
+
+    private void resetField(JTextField tf, String placeholder) {
+        tf.setText(placeholder);
+        tf.setForeground(TEXT_SUB);
+    }
+
+    private JButton btn(String text, Color bg) {
+        JButton b = new JButton(text);
+        b.setBackground(bg);
+        b.setForeground(Color.WHITE);
+        b.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        b.setFocusPainted(false);
+        b.setBorderPainted(false);
+        b.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        return b;
+    }
+
+    private JProgressBar bar(Color fg) {
+        JProgressBar b = new JProgressBar(0, 100);
+        b.setForeground(fg);
+        b.setBackground(new Color(45, 45, 60));
+        b.setBorderPainted(false);
+        return b;
+    }
+
+    public static void main(String[] args) {
+        SwingUtilities.invokeLater(() -> new NewJFrame().setVisible(true));
+    }
+}
